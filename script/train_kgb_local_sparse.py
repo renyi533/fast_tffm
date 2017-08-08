@@ -237,10 +237,10 @@ def run_training():
     if FLAGS.sparse_input:
       fm_pred = fm_infer(features,  FLAGS.feature_dimension)
       fm_pred = tf.reshape(fm_pred, [-1,1])
-      print(fm_pred.shape)
-      print(train_logits.shape)
-      train_logits = fm_pred
-      #train_logits = fm_pred + train_logits
+      if FLAGS.mode == 1:
+        train_logits = fm_pred
+      else:
+        train_logits = fm_pred + train_logits
     # Add to the Graph the Ops for loss calculation.
     loss = loss_fn(train_logits, labels, 0.0)
 
@@ -248,8 +248,8 @@ def run_training():
 
     # Add to the Graph the Ops that calculate and apply gradients.
     train_op,_ = training(loss, global_step, 1, FLAGS)
-
-    auc_op = auc(train_logits, labels)
+    train_predictions = tf.nn.sigmoid(train_logits, name='sigmoid')
+    auc_op = auc(train_predictions, labels)
 
     # Build the summary Tensor based on the TF collection of Summaries.
     summary = tf.summary.merge_all()
@@ -326,7 +326,7 @@ if __name__ == '__main__':
   parser.add_argument(
       '--learning_rate',
       type=float,
-      default=0.1,
+      default=0.01,
       help='Initial learning rate.'
   )
   parser.add_argument(
@@ -363,6 +363,12 @@ if __name__ == '__main__':
       '--batch_size',
       type=int,
       default=100,
+      help='Batch size.  Must divide evenly into the dataset sizes.'
+  )
+  parser.add_argument(
+      '--mode',
+      type=int,
+      default=0,
       help='Batch size.  Must divide evenly into the dataset sizes.'
   )
   parser.add_argument(
