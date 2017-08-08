@@ -3,20 +3,21 @@
 #include "tensorflow/core/lib/hash/hash.h"
 #include <ctime>
 
-REGISTER_OP("DenseBinaryParser")
+REGISTER_OP("SparseBinaryParser")
     .Input("records: string")
     .Output("labels: float32")
-    .Output("features: float32")
-    .Attr("feature_dimension: int");
+    .Output("indices: int64")
+    .Output("fvals: float32")
+    .Output("fids: int64")
+    .Output("dense_shape: int64");
 
 
 using namespace tensorflow;
 
-class DenseBinaryParserOp : public OpKernel {
+class SparseBinaryParserOp : public OpKernel {
   public:
 
-  explicit DenseBinaryParserOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
-    OP_REQUIRES_OK(ctx, ctx->GetAttr("feature_dimension", &feature_dimension_));
+  explicit SparseBinaryParserOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
   }
 
   void Compute(OpKernelContext* ctx) override {
@@ -24,32 +25,35 @@ class DenseBinaryParserOp : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->input("records", &records));
     auto records_t = records->flat<std::string>();
 
-    std::vector<std::vector<float>> features;
+    std::vector<std::vector<int64>> indices;
+    std::vector<float> fvals;
+    std::vector<int64> fids;
+    std::vector<int64> dense_shape;
     std::vector<std::vector<float>> labels;
-
-
+    int max_feat_count = 0;
     for (size_t i = 0; i < records_t.size(); ++i) {
       std::vector<float> label;
-      std::vector<float> feature(feature_dimension_, 0.0);
       const std::string& in_str = records_t(i);
-      ExtractCurrRecord(ctx, in_str, label, feature);
-      features.push_back(feature);
+      int feature_count = ExtractCurrRecord(ctx, in_str, label, fvals, fids, indices, i);
+      max_feat_count = feature_count > max_feat_count ? feature_count : max_feat_count;
       labels.push_back(label);
     }
-
+    dense_shape.push_back(records_t.size());
+    dense_shape.push_back(max_feat_count);
     AllocateTensorFor2DVector<float>(ctx, "labels", labels);
-    AllocateTensorFor2DVector<float>(ctx, "features", features);
+    AllocateTensorFor2DVector<int64>(ctx, "indices", indices);
+    AllocateTensorForVector<float>(ctx, "fvals", fvals);
+    AllocateTensorForVector<int64>(ctx, "fids", fids);
+    AllocateTensorForVector<int64>(ctx, "dense_shape", dense_shape);
   }
 
  private:
-  int32 feature_dimension_;
 
-  void ExtractCurrRecord(OpKernelContext* ctx, const string& str, std::vector<float>& label, 
-		  std::vector<float>& feature)
-  {
+  int ExtractCurrRecord(OpKernelContext* ctx, const string& str, std::vector<float>& label, std::vector<float>& fvals, 
+		  std::vector<int64>& fids, std::vector<std::vector<int64>>& indices, int sample_idx) {
     char* p = (char*)str.c_str();
-    tensorflow::uint64* u64p = (tensorflow::uint64*)p;
-    tensorflow::uint64 header = *u64p;
+    tensorflow::int64* int64p = (tensorflow::int64*)p;
+    tensorflow::int64 header = *int64p;
     //OP_REQUIRES_OK(ctx, header == 0x7FFFFFFF7FFFFFFF);
     p += 8;
     tensorflow::uint32* u32p = (tensorflow::uint32*)p;
@@ -58,18 +62,22 @@ class DenseBinaryParserOp : public OpKernel {
     u32p = (tensorflow::uint32*)p;
     tensorflow::uint32 label_len = *u32p;
     p += 4;
+    std::vector<int64> curr_idx;
+    curr_idx.push_back(sample_idx);
+    curr_idx.push_back(0);
     for (int i=0; i< feature_len; i++)
     {
-      u64p =(tensorflow::uint64*) p;
-      tensorflow::uint64 fid = *u64p;
+      int64p =(tensorflow::int64*) p;
+      tensorflow::int64 fid = *int64p;
+      fids.push_back(fid);
+      
+      curr_idx[1] = i;
+      indices.push_back(curr_idx);
       //OP_REQUIRES_OK(ctx, fid<feature_dimension_);
       p += 8;
       float* p_val = (float*)p;
       p += 4;
-      if (fid<feature_dimension_)
-      {
-        feature[(tensorflow::uint32)fid] = *p_val;
-      }      
+      fvals.push_back(*p_val);    
     }
 
     for (int i=0; i< label_len; i++)
@@ -78,6 +86,7 @@ class DenseBinaryParserOp : public OpKernel {
       p += 4;
       label.push_back(*p_val);
     }
+    return (int)feature_len;
   } 
 
   template<typename T>
@@ -112,4 +121,4 @@ class DenseBinaryParserOp : public OpKernel {
   }
 };
 
-REGISTER_KERNEL_BUILDER(Name("DenseBinaryParser").Device(tensorflow::DEVICE_CPU), DenseBinaryParserOp);
+REGISTER_KERNEL_BUILDER(Name("SparseBinaryParser").Device(tensorflow::DEVICE_CPU), SparseBinaryParserOp);
