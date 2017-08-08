@@ -12,7 +12,7 @@ REGISTER_OP("FmSparseTensorParser")
     .Output("ori_ids: int64")
     .Output("local_feature_ids: int32")
     .Output("feature_poses: int32")
-    .Attr("vocab_size: int64");
+    .Attr("vocab_size: int");
 
 using namespace tensorflow;
 
@@ -44,6 +44,7 @@ class FmSparseTensorParserOp : public OpKernel {
         curr_seg_id =  segment_ids(i);
       }
     }
+    feature_poses.push_back(segment_ids.size());
 
     for (size_t i = 0; i < feature_ids.size(); ++i) {
       auto ori_id = vocab_size_ > 0 ? (feature_ids(i) % vocab_size_) : feature_ids(i);
