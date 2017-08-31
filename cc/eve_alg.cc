@@ -93,7 +93,7 @@ class EveAlgOp : public OpKernel {
     float ratio_low = 0;
     float ratio_up = 0;
 
-    if (curr_target < prev_target) {
+    if (curr_target > prev_target) {
       ratio_low = low + 1;
       ratio_up = up + 1;
     }
