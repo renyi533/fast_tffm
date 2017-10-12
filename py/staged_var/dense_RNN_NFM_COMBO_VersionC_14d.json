@@ -1,0 +1,46 @@
+{
+    "job": {
+        "job_name": "train_rnn_nfm_combo_versionC",
+        "docker_type": "cpu",
+        "docker_image":"reg.docker.alibaba-inc.com/alimama/tensorflow-cpu:ps-merge-1",
+        "ps_num": 50, 
+        "ps_mem": 20000,
+        "ps_cpu_cores": 13,
+        "worker_num": 100,
+        "worker_mem": 40000,
+        "worker_cpu_cores": 8,
+        
+        "job_type": "dist_train",
+        "run_mode": "async",
+
+        "tf_main_script": "/home/hengrui.ry/rnnscript/staged_var/dense_kgb_runner_rnn_nfm_combo_verionc.py",
+        "dependent_files": "/home/hengrui.ry/rnnscript/staged_var",
+        "checkpoint_interval_steps": 200000,
+        "summary_interval_steps": 50000
+    },
+    
+    "reader": {
+        "reader_type": "rnn",
+        "window_size": 1,
+	"batch_size": 100,
+        "num_epochs": 1,
+        "data_dir": "hdfs://gpu1.hs.na61.tbsite.net:9000/data/liewen/traindata/rnn_reader_only_nfm_14d_20170917_train",
+        "sample_queue_capacity": 20000
+    },
+    
+    "optimizers": {
+        "global_optimizer": {
+            "name": "Adagrad",
+            "learning_rate": 0.01,
+            "lr_decay_rate": 1
+        }
+    },
+    
+    "yarn.scheduler": {
+        "first_request": "ps",
+	"node_port_num": 2
+    },
+    
+    "weight_decay": 0.0,
+    "auc_bucket_num": 200
+}
