@@ -36,7 +36,7 @@ class FmParserOp : public OpKernel {
     const Tensor* fid_tensor;
     OP_REQUIRES_OK(ctx, ctx->input("file_id", &fid_tensor));
     auto fid = fid_tensor->scalar<int32>()();
-    OP_REQUIRES(ctx, fid >= 0, errors::InvalidArgument("file_id should be greater than 0."))
+    OP_REQUIRES(ctx, fid >= 0, errors::InvalidArgument("file_id should be greater than 0."));
     const Tensor* data_file_tensor;
     OP_REQUIRES_OK(ctx, ctx->input("data_file", &data_file_tensor));
     auto data_file = data_file_tensor->scalar<string>()();
@@ -49,7 +49,7 @@ class FmParserOp : public OpKernel {
     std::vector<float> weights;
     {
       mutex_lock l(mu_);
-      OP_REQUIRES(ctx, fid >= file_id_, errors::InvalidArgument("file_id is less than last file_id", file_id_))
+      OP_REQUIRES(ctx, fid >= file_id_, errors::InvalidArgument("file_id is less than last file_id", file_id_));
       if (fid > file_id_) {
         if (data_file_stream_ != NULL) {
           data_file_stream_->close();
@@ -60,18 +60,18 @@ class FmParserOp : public OpKernel {
           }
         }
         data_file_stream_ = new std::ifstream(data_file);
-        OP_REQUIRES(ctx, data_file_stream_->is_open(), errors::InvalidArgument("Fails to open data file: ", data_file))
+        OP_REQUIRES(ctx, data_file_stream_->is_open(), errors::InvalidArgument("Fails to open data file: ", data_file));
         current_data_file_ = data_file;
         if (has_weight_file) {
           weight_file_stream_ = new std::ifstream(weight_file);
-          OP_REQUIRES(ctx, weight_file_stream_->is_open(), errors::InvalidArgument("Fails to open weight file: ", weight_file))
+          OP_REQUIRES(ctx, weight_file_stream_->is_open(), errors::InvalidArgument("Fails to open weight file: ", weight_file));
           current_weight_file_ = weight_file;
         }
         file_id_ = fid;
       } else {
-        OP_REQUIRES(ctx, current_data_file_ == data_file, errors::InvalidArgument("Data file is different with the same file id."))
+        OP_REQUIRES(ctx, current_data_file_ == data_file, errors::InvalidArgument("Data file is different with the same file id."));
         if (has_weight_file) {
-            OP_REQUIRES(ctx, current_weight_file_ == weight_file, errors::InvalidArgument("Weight file is different with the same file id."))
+            OP_REQUIRES(ctx, current_weight_file_ == weight_file, errors::InvalidArgument("Weight file is different with the same file id."));
         }
       }
       string data_line, weight_line;
@@ -81,7 +81,7 @@ class FmParserOp : public OpKernel {
         std::getline(*data_file_stream_, data_line);
         if (has_weight_file) {
           std::getline(*weight_file_stream_, weight_line);
-          OP_REQUIRES(ctx, data_file_stream_->eof() == weight_file_stream_->eof(), errors::InvalidArgument("The line number in data file and weight file do not match."))
+          OP_REQUIRES(ctx, data_file_stream_->eof() == weight_file_stream_->eof(), errors::InvalidArgument("The line number in data file and weight file do not match."));
         }
         if (data_file_stream_->eof()) {
           break;
@@ -89,7 +89,7 @@ class FmParserOp : public OpKernel {
         data_lines.push_back(data_line);
         if (has_weight_file) {
           weights.push_back(strtof(weight_line.c_str(), &err));
-          OP_REQUIRES(ctx, *err == 0 || isspace((unsigned char)*err), errors::InvalidArgument("Invalid weight: ", weight_line))
+          OP_REQUIRES(ctx, *err == 0 || isspace((unsigned char)*err), errors::InvalidArgument("Invalid weight: ", weight_line));
         } else {
           weights.push_back(1.0f);
         }
@@ -153,12 +153,12 @@ class FmParserOp : public OpKernel {
         ori_id = Hash64(ori_id_str, strlen(ori_id_str));
       } else {
         ori_id = strtol(ori_id_str, &err, 10);
-        OP_REQUIRES(ctx, *err == 0, errors::InvalidArgument("Invalid feature id ", ori_id_str, ". Set hash_feature_id = True?"))
+        OP_REQUIRES(ctx, *err == 0, errors::InvalidArgument("Invalid feature id ", ori_id_str, ". Set hash_feature_id = True?"));
       }
       ori_id = labs(ori_id % vocab_size);
       p += offset;
       if (*p == ':') {
-        OP_REQUIRES(ctx, sscanf(p, ":%f%n", &fv, &offset) == 1, errors::InvalidArgument("Invalid feature value: ", ori_id_str))
+        OP_REQUIRES(ctx, sscanf(p, ":%f%n", &fv, &offset) == 1, errors::InvalidArgument("Invalid feature value: ", ori_id_str));
         p += offset;
       } else {
         fv = 1;
