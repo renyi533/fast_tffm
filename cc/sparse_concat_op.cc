@@ -62,7 +62,8 @@ class SparseConcatOp : public OpKernel {
     OP_REQUIRES(context, shapes.size() == N,
                 errors::InvalidArgument("Expected ", N, " input shapes, got ",
                                         shapes.size()));
-    int shape_dim0 = 0;
+    std::vector<int> shape_dim0_vec;
+    int total_dim0 = 0;
     int max_dim1 = 0;
     for (int i = 0; i < N; i++) {
       OP_REQUIRES(context, TensorShapeUtils::IsVector(shapes[i].shape()),
@@ -77,15 +78,8 @@ class SparseConcatOp : public OpKernel {
                   errors::InvalidArgument(
                       "Input shapes should be of dim 2 but received dim ",
                       input_rank, " at position ", i));
-      if (shape_dim0 <=0)
-      {
-        shape_dim0 = curr_shape(0);
-      }
-      OP_REQUIRES(context, shape_dim0==curr_shape(0),
-                  errors::InvalidArgument(
-                      "first dim0 ", shape_dim0, "curr dim0",
-                      curr_shape(0), " at position ", i));
-
+      shape_dim0_vec.push_back(curr_shape(0));
+      total_dim0 += curr_shape(0);
       max_dim1 = (max_dim1 > curr_shape(1)) ? max_dim1 : curr_shape(1);
     }
 
@@ -94,7 +88,7 @@ class SparseConcatOp : public OpKernel {
                                 2, TensorShape({2}),
                                 &output_shape_out));
     auto output_shape = output_shape_out->vec<int64>();
-    output_shape(0) = shape_dim0 * N;
+    output_shape(0) = total_dim0;
     output_shape(1) = max_dim1;
 
     Tensor* output_values_out;
@@ -119,7 +113,7 @@ class SparseConcatOp : public OpKernel {
       auto indices_vec = inds[j].flat<int64>();
       auto vals_vec = vals[j].vec<int64>();
       int64 curr_index = 0;
-      for (int i=0; i<shape_dim0; i++)
+      for (int i=0; i<shape_dim0_vec[j]; i++)
       {
         int64 original_index = curr_index;
         while (curr_index < inds[j].dim_size(0) && indices_vec(2*curr_index) == i)
@@ -149,9 +143,9 @@ class SparseConcatOp : public OpKernel {
     OP_REQUIRES(context, c == count,
                 errors::InvalidArgument(
                       "expected total element: ", count, ", real count:", c));
-    OP_REQUIRES(context, sample_c == shape_dim0*N,
+    OP_REQUIRES(context, sample_c == total_dim0,
                 errors::InvalidArgument(
-                      "expected total samples: ", shape_dim0*N, ", real sample count:", sample_c));
+                      "expected total samples: ", total_dim0, ", real sample count:", sample_c));
   }
   
 
@@ -160,5 +154,6 @@ class SparseConcatOp : public OpKernel {
 };
 
 REGISTER_KERNEL_BUILDER(Name("SparseConcatenate").Device(tensorflow::DEVICE_CPU), SparseConcatOp);
+
 
 
